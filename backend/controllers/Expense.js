@@ -1,10 +1,16 @@
 import { ExpenseModel, CommentModel } from "../models/expense.js";
 import UserModel from "../models/user.js";
+import { Income } from '../models/Income.js';
+let count = 0;
 
 export const createExpense = async (req, res) => {
   try {
     const { bankName, subHead, purpose, amount, total, status, TxnId, expenseId } = req.body;
-
+     count ++;
+     console.log(count)
+     const currentDate = new Date();
+     const date = currentDate.toLocaleDateString('en-CA');
+    const voucherNo = `${date}/${count}`;
     let expense;
 
     if (!TxnId?.trim()) {
@@ -15,8 +21,10 @@ export const createExpense = async (req, res) => {
         amount,
         total,
         status,
-        userId: req.user._id
+        userId: req.user._id,
+        voucherNo: voucherNo,
       });
+
 
       await expense.save();
     }
@@ -45,6 +53,7 @@ export const createExpense = async (req, res) => {
 export const createComment = async (req, res) => {
   try {
     const { expenseId, commentText } = req.body;
+    console.log("55" , commentText)
 
     const expense = await ExpenseModel.findById(expenseId);
     if (!expense) {
@@ -231,6 +240,72 @@ export const updateExpense = async (req, res) => {
     res.status(500).json({
       message: "Error updating expense",
       error: error.message
+    });
+  }
+};
+
+export const getTotalExpenseAmount = async (req, res) => {
+  try {
+    // Aggregate total of all amounts
+    const totalAmount = await ExpenseModel.aggregate([
+      {
+        $group: {
+          _id: null, // We don't want to group by any specific field, so use null
+          totalAmount: { $sum: "$amount" } // Sum the 'amount' field for all documents
+        }
+      }
+    ]);
+
+    const totalExpence = await ExpenseModel.countDocuments()
+    const totalIncome  = await Income.countDocuments()
+    const totalPendingExpenses = await ExpenseModel.countDocuments({ status: 'pending' });
+    res.status(200).json({
+      message: "Total amount calculated successfully",
+      totalAmount: totalAmount,
+      totalExpence: totalExpence,
+      totalIncome:totalIncome,
+      totalPendingExpenses: totalPendingExpenses
+    });
+  } catch (error) {
+    console.log("Error calculating total amount: ", error.message);
+    res.status(500).json({
+      message: "Error calculating total amount",
+      error: error.message
+    });
+  }
+};
+
+
+export const deleteExpense = async (req, res) => {
+  try {
+    const { id: expenseId } = req.params;
+    console.log(`Deleting expense with ID: ${expenseId}`);  // Log the expense ID for debugging
+
+    // Find and delete the expense by its ID
+    const deletedExpense = await ExpenseModel.findByIdAndDelete(expenseId);
+
+    // Check if the expense was found and deleted
+    if (!deletedExpense) {
+      console.log("Expense not found");
+      return res.status(404).json({
+        message: "Expense not found",
+      });
+    }
+
+    // If comments are stored in a separate collection, delete those as well
+    await CommentModel.deleteMany({ _id: { $in: deletedExpense.comments } });
+
+    // Respond with a success message
+    res.status(200).json({
+      message: "Expense and related comments deleted successfully",
+      deletedExpense: deletedExpense,
+    });
+
+  } catch (error) {
+    console.log("Error deleting expense: ", error.message);
+    res.status(500).json({
+      message: "Error deleting expense",
+      error: error.message,
     });
   }
 };

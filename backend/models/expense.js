@@ -43,11 +43,11 @@ const expenseSchema = new mongoose.Schema({
         default: null
     },
     amount: {
-        type: String,
+        type: Number,
         required: true
     },
     total: {
-        type: String,
+        type: Number,
         required: true
     },
     // New Status field with ENUM values
@@ -72,6 +72,10 @@ const expenseSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'users', // Reference the User model
         required: true
+    },
+    voucherNo:{
+        type:String,
+        require:true
     },
     comments: [{
         type: commentSchema
